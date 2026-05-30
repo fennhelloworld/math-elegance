@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Euler's Formula Spiral — 数学之美</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a1a; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: serif; color: #fff; }
+canvas { border: 1px solid #333; }
+#controls { margin: 20px; text-align: center; }
+input[type=range] { width: 300px; }
+h1 { font-size: 24px; margin-bottom: 10px; }
+#equation { font-size: 28px; margin: 10px; font-style: italic; }
+.note { font-size: 13px; color: #888; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>Euler's Formula: e<sup>iθ</sup> = cos θ + i sin θ</h1>
+<div id="equation">e<sup>i<span id="theta-val">π</span></sup> = <span id="result">-1</span></div>
+<canvas id="c" width="600" height="600"></canvas>
+<div id="controls">
+  <label>θ = <span id="theta-display">3.14</span> rad</label><br>
+  <input type="range" id="theta" min="0" max="6.2832" step="0.01" value="3.1416">
+  <br><button onclick="animate()">Animate Full Circle</button>
+  <span class="note">Watch the spiral trace out the unit circle as θ goes from 0 to 2π</span>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 600, H = 600;
+const cx = W/2, cy = H/2, R = 200;
+
+function draw(theta) {
+  ctx.clearRect(0, 0, W, H);
+  
+  // Grid
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 1;
+  for (let i = -3; i <= 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cx + i*60, 0); ctx.lineTo(cx + i*60, H);
+    ctx.moveTo(0, cy + i*60); ctx.lineTo(W, cy + i*60);
+    ctx.stroke();
+  }
+  
+  // Axes
+  ctx.strokeStyle = '#555'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, H); ctx.stroke();
+  
+  // Unit circle
+  ctx.strokeStyle = '#334'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.stroke();
+  
+  // Spiral trace (e^(it) path)
+  ctx.strokeStyle = 'rgba(100, 200, 255, 0.3)'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (let t = 0; t <= theta; t += 0.01) {
+    const x = cx + R * Math.cos(t);
+    const y = cy - R * Math.sin(t);
+    if (t === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  
+  // Current point
+  const px = cx + R * Math.cos(theta);
+  const py = cy - R * Math.sin(theta);
+  
+  // Projection lines
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = '#f66'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, cy); ctx.stroke();
+  ctx.strokeStyle = '#6f6';
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(cx, py); ctx.stroke();
+  ctx.setLineDash([]);
+  
+  // Real component
+  ctx.strokeStyle = '#f66'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, cy); ctx.stroke();
+  ctx.fillStyle = '#f66'; ctx.font = '14px monospace';
+  ctx.fillText(`Re = cos(${theta.toFixed(2)}) = ${Math.cos(theta).toFixed(4)}`, px + 10, cy + 20);
+  
+  // Imaginary component
+  ctx.strokeStyle = '#6f6'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, py); ctx.stroke();
+  ctx.fillStyle = '#6f6';
+  ctx.fillText(`Im = sin(${theta.toFixed(2)}) = ${Math.sin(theta).toFixed(4)}`, cx + 10, py - 10);
+  
+  // Radius vector
+  ctx.strokeStyle = '#ff0'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py); ctx.stroke();
+  
+  // Angle arc
+  ctx.strokeStyle = '#ff0'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, 40, 0, -theta, true); ctx.stroke();
+  
+  // Point
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2); ctx.fill();
+  
+  // Labels
+  ctx.fillStyle = '#fff'; ctx.font = '16px serif';
+  ctx.fillText('Re', W - 30, cy - 10);
+  ctx.fillText('Im', cx + 10, 20);
+  
+  // Update equation display
+  document.getElementById('theta-val').textContent = theta.toFixed(2);
+  const real = Math.cos(theta);
+  const imag = Math.sin(theta);
+  let result = real.toFixed(3);
+  if (Math.abs(imag) > 0.001) result += ` + ${imag.toFixed(3)}i`;
+  document.getElementById('result').textContent = result;
+}
+
+const slider = document.getElementById('theta');
+slider.addEventListener('input', () => {
+  draw(parseFloat(slider.value));
+  document.getElementById('theta-display').textContent = parseFloat(slider.value).toFixed(2);
+});
+
+function animate() {
+  let t = 0;
+  const step = 0.03;
+  function frame() {
+    t += step;
+    if (t > Math.PI * 2) { t = 0; draw(parseFloat(slider.value)); return; }
+    slider.value = t;
+    draw(t);
+    document.getElementById('theta-display').textContent = t.toFixed(2);
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+draw(Math.PI);
+</script>
+</body>
+</html>

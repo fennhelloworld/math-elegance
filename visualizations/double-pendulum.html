@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Double Pendulum Chaos — 数学之美</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; display: flex; font-family: monospace; color: #0f0; overflow: hidden; }
+canvas { display: block; }
+#panel {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(0,0,0,0.8); padding: 15px; border: 1px solid #0f0;
+  border-radius: 4px; font-size: 12px; max-width: 250px;
+}
+h3 { color: #0f0; margin-bottom: 8px; }
+.trail { color: #888; }
+button { background: #0f0; color: #000; border: none; padding: 6px 12px;
+  margin: 4px 2px; cursor: pointer; font-family: monospace; border-radius: 2px; }
+button:hover { background: #0a0; color: #0f0; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="panel">
+  <h3>🌀 Double Pendulum</h3>
+  <p>混沌双摆 — Deterministic Chaos</p>
+  <p class="trail">Trail: <span id="trail-count">0</span> points</p>
+  <p>Energy: <span id="energy">0</span></p>
+  <p>θ₁: <span id="t1">0</span>° θ₂: <span id="t2">0</span>°</p>
+  <button onclick="togglePause()">Pause/Resume</button>
+  <button onclick="resetSim()">Reset</button>
+  <button onclick="addSecond()">+ Second Pendulum</button>
+  <p class="trail" style="margin-top:10px">Two pendulums with Δθ₁ = 0.001 rad<br>demonstrates sensitive dependence on initial conditions</p>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const g = 9.81, L1 = 1, L2 = 1, m1 = 1, m2 = 1;
+let pendulums = [];
+let paused = false;
+let secondAdded = false;
+
+class DoublePendulum {
+  constructor(th1, th2, color) {
+    this.th1 = th1; this.th2 = th2;
+    this.w1 = 0; this.w2 = 0;
+    this.color = color;
+    this.trail = [];
+  }
+
+  step(dt) {
+    const { th1, th2, w1, w2 } = this;
+    const delta = th1 - th2;
+    const den1 = (m1 + m2) * L1 - m2 * L1 * Math.cos(delta) ** 2;
+    const den2 = (L2 / L1) * den1;
+
+    const a1 = (-m2 * L1 * w1*w1 * Math.sin(delta) * Math.cos(delta)
+      - m2 * g * Math.sin(th2) * Math.cos(delta)
+      - m2 * L2 * w2*w2 * Math.sin(delta)
+      - (m1 + m2) * g * Math.sin(th1)) / den1;
+
+    const a2 = (m2 * L2 * w2*w2 * Math.sin(delta) * Math.cos(delta)
+      + (m1 + m2) * g * Math.sin(th1) * Math.cos(delta)
+      - (m1 + m2) * L1 * w1*w1 * Math.sin(delta)
+      - (m1 + m2) * g * Math.sin(th2)) / den2;
+
+    // RK4 would be better but Verlet is fine for visualization
+    this.w1 += a1 * dt;
+    this.w2 += a2 * dt;
+    this.th1 += this.w1 * dt;
+    this.th2 += this.w2 * dt;
+  }
+
+  getPos() {
+    const x1 = L1 * Math.sin(this.th1);
+    const y1 = L1 * Math.cos(this.th1);
+    const x2 = x1 + L2 * Math.sin(this.th2);
+    const y2 = y1 + L2 * Math.cos(this.th2);
+    return { x1, y1, x2, y2 };
+  }
+
+  energy() {
+    const { th1, th2, w1, w2 } = this;
+    const T = 0.5 * m1 * L1*L1 * w1*w1
+      + 0.5 * m2 * (L1*L1*w1*w1 + L2*L2*w2*w2 + 2*L1*L2*w1*w2*Math.cos(th1-th2));
+    const V = -(m1+m2)*g*L1*Math.cos(th1) - m2*g*L2*Math.cos(th2);
+    return T + V;
+  }
+}
+
+function resetSim() {
+  const th1 = Math.PI * 0.75;
+  const th2 = Math.PI * 0.5;
+  pendulums = [new DoublePendulum(th1, th2, 'rgba(0,255,100,')];
+  secondAdded = false;
+}
+resetSim();
+
+function addSecond() {
+  if (secondAdded) return;
+  const th1 = pendulums[0].th1 + 0.001; // Tiny difference!
+  const th2 = pendulums[0].th2;
+  pendulums.push(new DoublePendulum(th1, th2, 'rgba(255,100,0,'));
+  secondAdded = true;
+}
+
+function togglePause() { paused = !paused; }
+
+function draw() {
+  ctx.fillStyle = 'rgba(10,10,10,0.05)';
+  ctx.fillRect(0, 0, W, H);
+
+  const scale = Math.min(W, H) * 0.2;
+  const ox = W * 0.35, oy = H * 0.35;
+
+  for (const p of pendulums) {
+    const pos = p.getPos();
+    const sx1 = ox + pos.x1 * scale;
+    const sy1 = oy + pos.y1 * scale;
+    const sx2 = ox + pos.x2 * scale;
+    const sy2 = oy + pos.y2 * scale;
+
+    // Trail
+    p.trail.push({ x: sx2, y: sy2 });
+    if (p.trail.length > 2000) p.trail.shift();
+    
+    ctx.strokeStyle = p.color + '0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = Math.max(0, p.trail.length - 500); i < p.trail.length; i++) {
+      const t = p.trail[i];
+      if (i === Math.max(0, p.trail.length - 500)) ctx.moveTo(t.x, t.y);
+      else ctx.lineTo(t.x, t.y);
+    }
+    ctx.stroke();
+
+    // Rods
+    ctx.strokeStyle = p.color + '0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(sx1, sy1); ctx.lineTo(sx2, sy2); ctx.stroke();
+
+    // Bobs
+    ctx.fillStyle = p.color + '1)';
+    ctx.beginPath(); ctx.arc(sx1, sy1, 8, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx2, sy2, 10, 0, Math.PI*2); ctx.fill();
+
+    // Pivot
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(ox, oy, 4, 0, Math.PI*2); ctx.fill();
+  }
+
+  // Info
+  const p0 = pendulums[0];
+  document.getElementById('trail-count').textContent = p0.trail.length;
+  document.getElementById('energy').textContent = p0.energy().toFixed(4);
+  document.getElementById('t1').textContent = (p0.th1 * 180 / Math.PI % 360).toFixed(1);
+  document.getElementById('t2').textContent = (p0.th2 * 180 / Math.PI % 360).toFixed(1);
+}
+
+function update() {
+  if (!paused) {
+    const dt = 0.01;
+    const steps = 3;
+    for (let i = 0; i < steps; i++) {
+      for (const p of pendulums) p.step(dt);
+    }
+  }
+  draw();
+  requestAnimationFrame(update);
+}
+
+update();
+</script>
+</body>
+</html>
